@@ -40,10 +40,27 @@ def test_photo_location_without_gps():
     )
 
     assert response.status_code == 200
-    assert response.json() == {"has_location": False, "latitude": None, "longitude": None}
+    assert response.json() == {
+        "has_location": False,
+        "latitude": None,
+        "longitude": None,
+        "taken_at": None,
+    }
 
 
-def test_routes_end_to_end_with_mocked_routing_provider(monkeypatch):
+def test_photo_location_includes_taken_at_when_present():
+    photo = make_jpeg_bytes(latitude=37.5665, longitude=126.9780, taken_at="2026:05:01 09:30:00")
+
+    response = client.post(
+        "/api/photo/location",
+        files={"photo": ("seoul.jpg", photo, "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["taken_at"] == "2026-05-01T09:30:00"
+
+
+def test_routes_single_waypoint_round_trip(monkeypatch):
     monkeypatch.setattr(settings, "ors_api_key", "test-key")
 
     ors_response = {
@@ -63,8 +80,7 @@ def test_routes_end_to_end_with_mocked_routing_provider(monkeypatch):
         response = client.post(
             "/api/routes",
             json={
-                "latitude": 37.5665,
-                "longitude": 126.9780,
+                "waypoints": [{"latitude": 37.5665, "longitude": 126.9780}],
                 "distance_km": 10,
                 "count": 4,
             },
@@ -78,6 +94,47 @@ def test_routes_end_to_end_with_mocked_routing_provider(monkeypatch):
     gpx_response = client.get(first_route["gpx_url"])
     assert gpx_response.status_code == 200
     assert b"<gpx" in gpx_response.content
+
+
+def test_routes_multi_waypoint_requires_no_distance(monkeypatch):
+    monkeypatch.setattr(settings, "ors_api_key", "test-key")
+
+    ors_response = {
+        "features": [
+            {
+                "geometry": {"coordinates": [[127.0, 37.0], [127.1, 37.1]]},
+                "properties": {"summary": {"distance": 5000, "duration": 900}},
+            }
+        ]
+    }
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            return_value=httpx.Response(200, json=ors_response)
+        )
+
+        response = client.post(
+            "/api/routes",
+            json={
+                "waypoints": [
+                    {"latitude": 37.0, "longitude": 127.0},
+                    {"latitude": 37.1, "longitude": 127.1},
+                ],
+                "count": 3,
+            },
+        )
+
+    assert response.status_code == 200
+    assert len(response.json()["routes"]) == 3
+
+
+def test_routes_single_waypoint_without_distance_is_rejected():
+    response = client.post(
+        "/api/routes",
+        json={"waypoints": [{"latitude": 37.0, "longitude": 127.0}]},
+    )
+
+    assert response.status_code == 422
 
 
 def test_gpx_download_404_for_unknown_route():

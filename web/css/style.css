@@ -144,3 +144,98 @@ button:disabled {
 .route-card a:hover {
   text-decoration: underline;
 }
+
+.note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.photo-list {
+  display: grid;
+  gap: 8px;
+}
+
+.photo-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: grab;
+}
+
+.photo-card:active {
+  cursor: grabbing;
+}
+
+.photo-card--no-location {
+  opacity: 0.6;
+}
+
+.drag-handle {
+  color: #999;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.photo-card .thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #eee;
+}
+
+.photo-info {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.photo-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-info span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.photo-info span.error {
+  color: var(--error);
+}
+
+.remove-btn {
+  justify-self: end;
+  padding: 6px 10px;
+  background: #eee;
+  color: #444;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.remove-btn:hover {
+  background: #e2e2e2;
+}
+
+.waypoint-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  border: 2px solid #fff;
+}

@@ -1,6 +1,6 @@
 import pytest
 
-from app.exif import extract_gps
+from app.exif import extract_gps, extract_taken_at
 from tests.helpers import make_jpeg_bytes
 
 
@@ -30,3 +30,15 @@ def test_extract_gps_returns_none_without_gps_tags():
     photo = make_jpeg_bytes()
 
     assert extract_gps(photo) is None
+
+
+def test_extract_taken_at_parses_date_time_original():
+    photo = make_jpeg_bytes(taken_at="2026:05:01 09:30:00")
+
+    assert extract_taken_at(photo) == "2026-05-01T09:30:00"
+
+
+def test_extract_taken_at_returns_none_without_exif():
+    photo = make_jpeg_bytes()
+
+    assert extract_taken_at(photo) is None

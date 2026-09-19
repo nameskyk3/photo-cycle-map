@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.exif import extract_gps
+from app.exif import extract_gps, extract_taken_at
 from app.gpx import build_gpx
 from app.models import LocationResponse, Route, RouteListResponse, RouteRequest
 from app.routing import RoutingError, generate_routes
@@ -40,15 +40,18 @@ async def photo_location(photo: UploadFile) -> LocationResponse:
         return LocationResponse(has_location=False)
 
     latitude, longitude = gps
-    return LocationResponse(has_location=True, latitude=latitude, longitude=longitude)
+    taken_at = extract_taken_at(image_bytes)
+    return LocationResponse(
+        has_location=True, latitude=latitude, longitude=longitude, taken_at=taken_at
+    )
 
 
 @app.post("/api/routes", response_model=RouteListResponse)
 async def create_routes(request: RouteRequest) -> RouteListResponse:
+    waypoints = [(point.latitude, point.longitude) for point in request.waypoints]
     try:
         raw_routes = await generate_routes(
-            request.latitude,
-            request.longitude,
+            waypoints,
             request.distance_km,
             request.count,
             request.profile,

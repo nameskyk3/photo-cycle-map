@@ -29,7 +29,7 @@ private val ROUTE_COLORS = listOf(0xFFE6194B.toInt(), 0xFF3CB44B.toInt(), 0xFF43
 @Composable
 fun MapScreen(
     modifier: Modifier = Modifier,
-    location: LatLngState?,
+    waypoints: List<LatLngState>,
     routes: List<RouteDto>,
 ) {
     var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
@@ -58,19 +58,25 @@ fun MapScreen(
         },
         update = {
             val map = kakaoMap ?: return@AndroidView
-            renderOnMap(map, location, routes)
+            renderOnMap(map, waypoints, routes)
         },
     )
 }
 
-private fun renderOnMap(map: KakaoMap, location: LatLngState?, routes: List<RouteDto>) {
+private fun renderOnMap(map: KakaoMap, waypoints: List<LatLngState>, routes: List<RouteDto>) {
     map.labelManager?.layer?.removeAll()
     map.routeLineManager?.layer?.removeAll()
 
-    if (location != null) {
-        val position = LatLng.from(location.lat, location.lng)
+    // 각 사진 위치에 마커를 찍는다. 여러 장이면 순서를 구분해야 하지만, 카카오맵 SDK의
+    // 라벨에 순번 숫자를 표시하려면 커스텀 라벨 스타일이 필요하다 - 최신 SDK 문서의
+    // LabelStyle/텍스트 라벨 API를 확인해서 추가해도 좋다.
+    waypoints.forEach { point ->
+        val position = LatLng.from(point.lat, point.lng)
         map.labelManager?.layer?.addLabel(LabelOptions.from(position))
-        map.moveCamera(CameraUpdateFactory.newCenterPosition(position, 14))
+    }
+
+    waypoints.lastOrNull()?.let { last ->
+        map.moveCamera(CameraUpdateFactory.newCenterPosition(LatLng.from(last.lat, last.lng), 14))
     }
 
     routes.forEachIndexed { index, route ->

@@ -1,10 +1,13 @@
 package com.photocyclemap.app
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +26,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,10 +34,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.photocyclemap.app.network.RouteDto
+import com.photocyclemap.app.ui.LatLngState
 import com.photocyclemap.app.ui.MapScreen
+import com.photocyclemap.app.ui.PhotoEntry
 import com.photocyclemap.app.ui.PhotoRouteViewModel
 
 class MainActivity : ComponentActivity() {
@@ -53,14 +60,13 @@ class MainActivity : ComponentActivity() {
 fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var distanceKm by remember { mutableStateOf("10") }
+    val context = LocalContext.current
 
-    val pickPhotoLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        uri?.let(viewModel::onPhotoSelected)
-    }
+    val pickPhotosLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+    ) { uris -> viewModel.onPhotosSelected(uris) }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val locatedCount = uiState.locatedPhotos.size
 
     Scaffold { padding: PaddingValues ->
         Column(
@@ -76,25 +82,37 @@ fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
             )
 
             Button(onClick = {
-                pickPhotoLauncher.launch(
-                    androidx.activity.result.PickVisualMediaRequest(
-                        ActivityResultContracts.PickVisualMedia.ImageOnly,
-                    )
+                pickPhotosLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             }) {
-                Text("1. 사진 선택")
+                Text("1. 사진 선택 (여러 장 가능)")
             }
 
-            OutlinedTextField(
-                value = distanceKm,
-                onValueChange = { distanceKm = it },
-                label = { Text("2. 원하는 경로 거리 (km)") },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (uiState.photos.isNotEmpty()) {
+                PhotoOrderList(photos = uiState.photos, viewModel = viewModel)
+            }
+
+            if (locatedCount == 1) {
+                OutlinedTextField(
+                    value = distanceKm,
+                    onValueChange = { distanceKm = it },
+                    label = { Text("2. 원하는 경로 거리 (km)") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else if (locatedCount > 1) {
+                Text(
+                    text = "사진 ${locatedCount}장의 위치를 순서대로 잇는 경로가 만들어집니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
 
             Button(
-                onClick = { distanceKm.toDoubleOrNull()?.let(viewModel::generateRoutes) },
-                enabled = uiState.location != null && !uiState.isLoading,
+                onClick = {
+                    val distance = if (locatedCount == 1) distanceKm.toDoubleOrNull() else null
+                    viewModel.generateRoutes(distance)
+                },
+                enabled = locatedCount > 0 && !uiState.isLoading,
             ) {
                 Text("경로 4개 생성")
             }
@@ -110,7 +128,7 @@ fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(320.dp),
-                location = uiState.location,
+                waypoints = uiState.locatedPhotos.map { LatLngState(it.lat!!, it.lng!!) },
                 routes = uiState.routes,
             )
 
@@ -122,6 +140,39 @@ fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
                             onReady = { uri -> shareGpx(context, uri) },
                             onError = { },
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoOrderList(photos: List<PhotoEntry>, viewModel: PhotoRouteViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        var order = 0
+        photos.forEachIndexed { index, photo ->
+            if (photo.hasLocation) order++
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    val label = if (photo.hasLocation) "$order. ${photo.name}" else "${photo.name} (${photo.error})"
+                    Text(text = label, style = MaterialTheme.typography.bodySmall)
+
+                    Row {
+                        TextButton(onClick = { viewModel.movePhoto(photo.id, -1) }, enabled = index > 0) {
+                            Text("▲")
+                        }
+                        TextButton(onClick = { viewModel.movePhoto(photo.id, 1) }, enabled = index < photos.lastIndex) {
+                            Text("▼")
+                        }
+                        TextButton(onClick = { viewModel.removePhoto(photo.id) }) {
+                            Text("삭제")
+                        }
                     }
                 }
             }
@@ -148,7 +199,7 @@ private fun RouteCard(route: RouteDto, onShareGpx: () -> Unit) {
     }
 }
 
-private fun shareGpx(context: android.content.Context, uri: android.net.Uri) {
+private fun shareGpx(context: Context, uri: Uri) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "application/gpx+xml"
         putExtra(Intent.EXTRA_STREAM, uri)
