@@ -1,0 +1,9 @@
+# 이 파일을 local.properties로 복사한 뒤 값을 채우세요.
+# cp local.properties.example local.properties
+# local.properties는 git에 커밋되지 않습니다 (Android SDK 경로도 여기에 자동으로 추가됩니다).
+
+# 카카오 디벨로퍼스 > 내 애플리케이션 > 앱 키 > 네이티브 앱 키
+KAKAO_NATIVE_APP_KEY=
+
+# 백엔드 서버 주소. 에뮬레이터에서 로컬 서버에 접속할 때는 10.0.2.2를 사용하세요.
+API_BASE_URL=http://10.0.2.2:8000

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>사진 위치 → 자전거 경로 지도</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>📷 사진 위치 → 🚴 자전거 경로</h1>
+    <p>사진을 올리면 촬영 위치를 카카오맵에 표시하고, 그 위치를 지나는 자전거 경로 4개를 만들어 GPX로 내려받을 수 있습니다.</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="field">
+        <label for="photo-input">1. 사진 선택 (GPS 위치 정보 포함)</label>
+        <input type="file" id="photo-input" accept="image/*" />
+      </div>
+      <div class="field">
+        <label for="distance-input">2. 원하는 경로 거리 (km)</label>
+        <input type="number" id="distance-input" value="10" min="1" max="200" step="1" />
+      </div>
+      <button id="generate-btn" disabled>경로 4개 생성</button>
+      <p id="status-message" class="status"></p>
+    </section>
+
+    <section id="map" class="map"></section>
+
+    <section id="route-list" class="route-list"></section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

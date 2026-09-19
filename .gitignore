@@ -1,0 +1,25 @@
+# --- Python (backend) ---
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.env
+*.pyc
+
+# --- Web ---
+web/js/config.js
+
+# --- Android / Gradle ---
+android/local.properties
+android/.gradle/
+android/build/
+android/app/build/
+android/**/build/
+android/.idea/
+android/*.iml
+android/captures/
+android/.cxx/
+
+# --- OS / editors ---
+.DS_Store
+.vscode/
