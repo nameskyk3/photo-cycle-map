@@ -92,13 +92,14 @@ async def fetch_segment_alternatives(
     target_count: int,
 ) -> list[dict]:
     """두 지점 사이의 경로를 서로 다른 대안 경로로 최대 target_count개까지 요청한다.
-    실제 도로 사정에 따라 ORS가 그보다 적게 돌려줄 수 있다."""
+    실제 도로 사정에 따라 ORS가 그보다 적게 돌려줄 수 있다.
+    ORS는 target_count로 최대 3까지만 허용한다 (그 이상이면 400 에러)."""
     start_lat, start_lng = start
     end_lat, end_lng = end
     body = {
         "coordinates": [[start_lng, start_lat], [end_lng, end_lat]],
         "alternative_routes": {
-            "target_count": max(1, target_count),
+            "target_count": min(3, max(1, target_count)),
             "weight_factor": 1.6,
             "share_factor": 0.6,
         },
