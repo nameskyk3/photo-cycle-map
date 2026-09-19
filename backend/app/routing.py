@@ -85,6 +85,7 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
         "Authorization": settings.ors_api_key,
         "Content-Type": "application/json",
     }
+    print(f"[ORS request] {profile} options={body.get('options')} coords={body.get('coordinates')}")
     try:
         response = await client.post(url, json=body, headers=headers, timeout=30.0)
     except httpx.HTTPError as exc:
@@ -93,7 +94,18 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
     if response.status_code != 200:
         raise RoutingError(f"라우팅 서버 오류 ({response.status_code}): {response.text}")
 
-    return response.json()
+    data = response.json()
+    try:
+        summary = data["features"][0]["properties"]["summary"]
+        n_points = len(data["features"][0]["geometry"]["coordinates"])
+        print(
+            f"[ORS response] distance={summary.get('distance')} "
+            f"ascent={summary.get('ascent')} descent={summary.get('descent')} points={n_points}"
+        )
+    except (KeyError, IndexError, TypeError):
+        print(f"[ORS response] unexpected shape: {data}")
+
+    return data
 
 
 async def fetch_round_trip(
