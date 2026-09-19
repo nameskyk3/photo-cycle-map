@@ -336,12 +336,16 @@ async def test_climb_preference_sets_steepness_difficulty(climb_preference, expe
 
 @pytest.mark.asyncio
 async def test_fetch_round_trip_parses_elevation_and_ascent_descent():
+    # ORS puts ascent/descent as top-level fields on `properties`, as
+    # siblings of `summary` - not nested inside `summary` itself.
     response = {
         "features": [
             {
                 "geometry": {"coordinates": [[127.0, 37.5, 10.0], [127.1, 37.6, 25.0]]},
                 "properties": {
-                    "summary": {"distance": 1000, "duration": 200, "ascent": 15.0, "descent": 3.0}
+                    "summary": {"distance": 1000, "duration": 200},
+                    "ascent": 15.0,
+                    "descent": 3.0,
                 },
             }
         ]

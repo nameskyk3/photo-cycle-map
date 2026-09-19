@@ -106,7 +106,8 @@ def _parse_directions_response(data: dict) -> list[dict]:
     for feature in features:
         try:
             raw_coords = feature["geometry"]["coordinates"]
-            summary = feature["properties"]["summary"]
+            properties = feature["properties"]
+            summary = properties["summary"]
         except (KeyError, TypeError) as exc:
             raise RoutingError("라우팅 응답 형식이 올바르지 않습니다.") from exc
 
@@ -117,12 +118,18 @@ def _parse_directions_response(data: dict) -> list[dict]:
             coordinates.append((lat, lng))
             elevations.append(point[2] if len(point) > 2 else None)
 
+        # ORS returns ascent/descent as top-level fields on `properties`, not
+        # nested inside `summary` (unlike distance/duration) - fall back to
+        # summary too in case that ever changes.
+        ascent = properties.get("ascent", summary.get("ascent"))
+        descent = properties.get("descent", summary.get("descent"))
+
         routes.append(
             {
                 "distance_m": summary.get("distance", 0.0),
                 "duration_s": summary.get("duration", 0.0),
-                "ascent_m": summary.get("ascent"),
-                "descent_m": summary.get("descent"),
+                "ascent_m": ascent,
+                "descent_m": descent,
                 "coordinates": coordinates,
                 "elevations": elevations,
             }
