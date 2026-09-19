@@ -146,12 +146,11 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
 
     data = response.json()
     try:
-        summary = data["features"][0]["properties"]["summary"]
-        n_points = len(data["features"][0]["geometry"]["coordinates"])
-        print(
-            f"[ORS response] distance={summary.get('distance')} "
-            f"ascent={summary.get('ascent')} descent={summary.get('descent')} points={n_points}"
-        )
+        props = data["features"][0]["properties"]
+        coords = data["features"][0]["geometry"]["coordinates"]
+        print(f"[ORS response] sent elevation={body.get('elevation')}")
+        print(f"[ORS response] properties keys={list(props.keys())} summary={props.get('summary')}")
+        print(f"[ORS response] first coordinate={coords[0] if coords else None} (len={len(coords[0]) if coords else 0})")
     except (KeyError, IndexError, TypeError):
         print(f"[ORS response] unexpected shape: {data}")
 
