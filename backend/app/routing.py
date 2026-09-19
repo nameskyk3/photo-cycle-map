@@ -208,6 +208,33 @@ async def fetch_segment_route(
     return _parse_directions_response(data)[0]
 
 
+async def _fetch_segment_with_fallback(
+    client: httpx.AsyncClient,
+    start: Coordinate,
+    end: Coordinate,
+    profile: str,
+    climb_preference: str,
+    offset_m: float,
+) -> dict:
+    """`offset_m`만큼 비켜난 경유지로 구간 경로를 요청하되, 그 경유지 근처에 실제 도로가
+    없어 ORS가 실패하면(바다/산 한가운데 등) 오프셋을 절반으로 줄여 한 번 더 시도하고,
+    그래도 안 되면 경유지 없이 원래 경로로 대체한다."""
+    if not offset_m:
+        return await fetch_segment_route(client, start, end, profile, climb_preference)
+
+    via = _offset_via_point(start, end, offset_m)
+    try:
+        return await fetch_segment_route(client, start, end, profile, climb_preference, via)
+    except RoutingError:
+        pass
+
+    try:
+        reduced_via = _offset_via_point(start, end, offset_m / 2)
+        return await fetch_segment_route(client, start, end, profile, climb_preference, reduced_via)
+    except RoutingError:
+        return await fetch_segment_route(client, start, end, profile, climb_preference)
+
+
 async def generate_round_trip_routes(
     latitude: float,
     longitude: float,
@@ -263,9 +290,9 @@ async def generate_waypoint_routes(
 
             for start, end in segments:
                 offset_m = _variant_offset_m(variant_index, _haversine_m(start, end))
-                via = _offset_via_point(start, end, offset_m) if offset_m else None
-
-                piece = await fetch_segment_route(client, start, end, profile, climb_preference, via)
+                piece = await _fetch_segment_with_fallback(
+                    client, start, end, profile, climb_preference, offset_m
+                )
                 coords = piece["coordinates"]
                 elevs = piece.get("elevations") or [None] * len(coords)
                 # Avoid duplicating the junction point shared between segments.

@@ -192,6 +192,59 @@ async def test_generate_waypoint_routes_passes_through_every_waypoint_in_order()
 
 
 @pytest.mark.asyncio
+async def test_fetch_segment_with_fallback_retries_with_smaller_offset_then_no_via():
+    attempts = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        coords = json.loads(request.content)["coordinates"]
+        attempts.append(len(coords))
+        if len(coords) == 3:
+            # Simulate ORS failing to find a routable road near the via point
+            # (e.g. it landed in the sea).
+            return httpx.Response(404, json={"error": {"message": "no routable point"}})
+        return httpx.Response(
+            200, json=_ors_geojson_response([(1000, 100, [(0.0, 0.0), (1.0, 1.0)])])
+        )
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        async with httpx.AsyncClient() as client:
+            result = await routing._fetch_segment_with_fallback(
+                client, (0.0, 0.0), (1.0, 1.0), "cycling-regular", "밸런스", 500.0
+            )
+
+    # Full-offset via fails, half-offset via also fails, then it falls back
+    # to the plain point-to-point request (2 coordinates) which succeeds.
+    assert attempts == [3, 3, 2]
+    assert result["coordinates"] == [(0.0, 0.0), (1.0, 1.0)]
+
+
+@pytest.mark.asyncio
+async def test_fetch_segment_with_fallback_skips_via_entirely_when_offset_is_zero():
+    sent_coordinate_counts = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        coords = json.loads(request.content)["coordinates"]
+        sent_coordinate_counts.append(len(coords))
+        return httpx.Response(
+            200, json=_ors_geojson_response([(1000, 100, [(0.0, 0.0), (1.0, 1.0)])])
+        )
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        async with httpx.AsyncClient() as client:
+            await routing._fetch_segment_with_fallback(
+                client, (0.0, 0.0), (1.0, 1.0), "cycling-regular", "밸런스", 0.0
+            )
+
+    assert sent_coordinate_counts == [2]
+
+
+@pytest.mark.asyncio
 async def test_generate_waypoint_routes_only_injects_via_for_later_variants():
     sent_coordinate_counts = []
 
