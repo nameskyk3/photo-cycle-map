@@ -91,7 +91,10 @@ function updateMapMarkers() {
 function updateControlsVisibility() {
   const count = locatedPhotos().length;
   const isSingle = count === 1;
-  distanceField.style.display = isSingle ? "" : "none";
+  // 항상 보이되, 사진이 1장일 때만 실제로 쓰이므로 그 외에는 비활성화만 한다
+  // (완전히 숨기면 "입력창이 사라졌다"고 오해하기 쉽다).
+  distanceInput.disabled = !isSingle;
+  distanceField.classList.toggle("field--disabled", !isSingle);
   multiPhotoNote.hidden = count <= 1;
   generateBtn.disabled = count === 0;
 }

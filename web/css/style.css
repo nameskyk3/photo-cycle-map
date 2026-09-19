@@ -59,6 +59,15 @@ main {
   font-size: 0.9rem;
 }
 
+.field--disabled label {
+  color: #999;
+}
+
+.field--disabled input {
+  background: #f3f3f3;
+  color: #999;
+}
+
 input[type="file"],
 input[type="number"] {
   padding: 8px;
