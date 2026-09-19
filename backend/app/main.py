@@ -55,6 +55,7 @@ async def create_routes(request: RouteRequest) -> RouteListResponse:
             request.distance_km,
             request.count,
             request.profile,
+            request.climb_preference,
         )
     except RoutingError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -62,13 +63,17 @@ async def create_routes(request: RouteRequest) -> RouteListResponse:
     routes = []
     for raw in raw_routes:
         route_id = uuid.uuid4().hex
-        gpx_xml = build_gpx(f"cycling-route-{route_id}", raw["coordinates"])
+        gpx_xml = build_gpx(
+            f"cycling-route-{route_id}", raw["coordinates"], raw.get("elevations")
+        )
         save_gpx(route_id, gpx_xml)
         routes.append(
             Route(
                 id=route_id,
                 distance_m=raw["distance_m"],
                 duration_s=raw["duration_s"],
+                ascent_m=raw.get("ascent_m"),
+                descent_m=raw.get("descent_m"),
                 coordinates=raw["coordinates"],
                 gpx_url=f"/api/routes/{route_id}/gpx",
             )

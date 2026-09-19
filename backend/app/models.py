@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
+
+ClimbPreference = Literal["업힐", "밸런스", "평지"]
 
 
 class LocationResponse(BaseModel):
@@ -22,6 +26,8 @@ class RouteRequest(BaseModel):
     distance_km: float | None = Field(default=None, gt=0, le=200)
     count: int = Field(default=4, ge=1, le=8)
     profile: str = Field(default="cycling-regular")
+    # 업힐(오르막 선호) / 밸런스(오르막+평지 혼합) / 평지(오르막 회피)
+    climb_preference: ClimbPreference = "밸런스"
 
     @model_validator(mode="after")
     def _distance_required_for_single_waypoint(self) -> "RouteRequest":
@@ -34,6 +40,8 @@ class Route(BaseModel):
     id: str
     distance_m: float
     duration_s: float
+    ascent_m: float | None = None
+    descent_m: float | None = None
     coordinates: list[tuple[float, float]]  # (lat, lng) pairs, in path order
     gpx_url: str
 

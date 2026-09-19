@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.photocyclemap.app.network.ClimbPreference
 import com.photocyclemap.app.network.RouteDto
 import com.photocyclemap.app.ui.LatLngState
 import com.photocyclemap.app.ui.MapScreen
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
 fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     var distanceKm by remember { mutableStateOf("10") }
+    var climbPreference by remember { mutableStateOf(ClimbPreference.BALANCE) }
     val context = LocalContext.current
 
     val pickPhotosLauncher = rememberLauncherForActivityResult(
@@ -110,8 +113,15 @@ fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
                 )
             }
 
+            if (locatedCount > 0) {
+                ClimbPreferenceSelector(
+                    selected = climbPreference,
+                    onSelect = { climbPreference = it },
+                )
+            }
+
             Button(
-                onClick = { viewModel.generateRoutes(distanceKm.toDoubleOrNull()) },
+                onClick = { viewModel.generateRoutes(distanceKm.toDoubleOrNull(), climbPreference) },
                 enabled = locatedCount > 0 && !uiState.isLoading,
             ) {
                 Text("경로 4개 생성")
@@ -181,6 +191,27 @@ private fun PhotoOrderList(photos: List<PhotoEntry>, viewModel: PhotoRouteViewMo
 }
 
 @Composable
+private fun ClimbPreferenceSelector(selected: ClimbPreference, onSelect: (ClimbPreference) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(text = "3. 경로 스타일", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ClimbPreference.entries.forEach { preference ->
+                val label = when (preference) {
+                    ClimbPreference.UPHILL -> "업힐 위주"
+                    ClimbPreference.BALANCE -> "업힐 평지 위주"
+                    ClimbPreference.FLAT -> "평지 위주"
+                }
+                if (preference == selected) {
+                    Button(onClick = { onSelect(preference) }) { Text(label) }
+                } else {
+                    OutlinedButton(onClick = { onSelect(preference) }) { Text(label) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RouteCard(route: RouteDto, onShareGpx: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -191,7 +222,11 @@ private fun RouteCard(route: RouteDto, onShareGpx: () -> Unit) {
         ) {
             val km = route.distance_m / 1000.0
             val minutes = (route.duration_s / 60.0).toInt()
-            Text(text = "%.1f km · 약 %d분".format(km, minutes))
+            var detail = "%.1f km · 약 %d분".format(km, minutes)
+            if (route.ascent_m != null) {
+                detail += " · ↗ %.0fm / ↘ %.0fm".format(route.ascent_m, route.descent_m ?: 0.0)
+            }
+            Text(text = detail)
             Button(onClick = onShareGpx) {
                 Text("GPX 공유")
             }

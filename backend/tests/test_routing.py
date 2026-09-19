@@ -183,7 +183,7 @@ async def test_generate_waypoint_routes_extends_route_when_shorter_than_distance
 
     def _responder(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        if "options" in body:  # round_trip extension request
+        if "round_trip" in body.get("options", {}):  # round_trip extension request
             return httpx.Response(200, json=extension)
         return httpx.Response(200, json=segment)
 
@@ -200,3 +200,57 @@ async def test_generate_waypoint_routes_extends_route_when_shorter_than_distance
     route = routes[0]
     assert route["distance_m"] == 5000
     assert route["coordinates"] == [(0.0, 0.0), (1.0, 1.0), (1.2, 1.2), (1.0, 1.0)]
+
+
+@pytest.mark.parametrize(
+    "climb_preference,expected_steepness",
+    [("업힐", 3), ("밸런스", 1), ("평지", 0)],
+)
+@pytest.mark.asyncio
+async def test_climb_preference_sets_steepness_difficulty(climb_preference, expected_steepness):
+    route = _ors_geojson_response([(10_000, 1800, [(37.5, 127.0)])])
+    sent_bodies = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        sent_bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=route)
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        async with httpx.AsyncClient() as client:
+            await routing.fetch_round_trip(
+                client, 37.5, 127.0, 10.0, "cycling-regular", seed=1, climb_preference=climb_preference
+            )
+
+    steepness = sent_bodies[0]["options"]["profile_params"]["weightings"]["steepness_difficulty"]
+    assert steepness == expected_steepness
+
+
+@pytest.mark.asyncio
+async def test_fetch_round_trip_parses_elevation_and_ascent_descent():
+    response = {
+        "features": [
+            {
+                "geometry": {"coordinates": [[127.0, 37.5, 10.0], [127.1, 37.6, 25.0]]},
+                "properties": {
+                    "summary": {"distance": 1000, "duration": 200, "ascent": 15.0, "descent": 3.0}
+                },
+            }
+        ]
+    }
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            return_value=httpx.Response(200, json=response)
+        )
+        async with httpx.AsyncClient() as client:
+            result = await routing.fetch_round_trip(
+                client, 37.5, 127.0, 1.0, "cycling-regular", seed=1
+            )
+
+    assert result["ascent_m"] == 15.0
+    assert result["descent_m"] == 3.0
+    assert result["coordinates"] == [(37.5, 127.0), (37.6, 127.1)]
+    assert result["elevations"] == [10.0, 25.0]

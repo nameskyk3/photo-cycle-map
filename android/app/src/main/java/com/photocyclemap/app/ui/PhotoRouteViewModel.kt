@@ -6,6 +6,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.photocyclemap.app.network.ApiClient
+import com.photocyclemap.app.network.ClimbPreference
 import com.photocyclemap.app.network.RouteDto
 import com.photocyclemap.app.network.RouteRequest
 import com.photocyclemap.app.network.WaypointDto
@@ -152,7 +153,7 @@ class PhotoRouteViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun generateRoutes(distanceKm: Double?) {
+    fun generateRoutes(distanceKm: Double?, climbPreference: ClimbPreference = ClimbPreference.BALANCE) {
         val located = _uiState.value.locatedPhotos
         if (located.isEmpty()) return
         if (located.size == 1 && distanceKm == null) {
@@ -175,7 +176,11 @@ class PhotoRouteViewModel(application: Application) : AndroidViewModel(applicati
                 // 사진이 여러 장이면 distanceKm은 "최소 목표 거리"로 쓰인다: 사진들을 잇는
                 // 경로가 이미 더 길면 서버에서 무시하고, 짧으면 순환 구간을 추가해 채운다.
                 val response = ApiClient.service.generateRoutes(
-                    RouteRequest(waypoints = waypoints, distance_km = distanceKm)
+                    RouteRequest(
+                        waypoints = waypoints,
+                        distance_km = distanceKm,
+                        climb_preference = climbPreference.apiValue,
+                    )
                 )
                 _uiState.update {
                     it.copy(

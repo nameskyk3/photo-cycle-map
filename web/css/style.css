@@ -69,10 +69,13 @@ main {
 }
 
 input[type="file"],
-input[type="number"] {
+input[type="number"],
+select {
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
+  font-size: 1rem;
+  background: #fff;
 }
 
 button {

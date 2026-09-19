@@ -8,6 +8,8 @@
   경로 4개. 원하는 거리(km)를 함께 입력하면 "최소 목표 거리"로 취급합니다 — 사진들을 잇는 실제
   경로가 이미 그보다 길면 입력값은 무시하고, 짧으면 마지막 사진 위치에서 부족한 만큼 순환 구간을
   추가해 채웁니다.
+- **경로 스타일**: 업힐 위주(오르막 선호) / 업힐 평지 위주(밸런스) / 평지 위주(오르막 회피) 중 선택할
+  수 있습니다. GPX에는 고도(elevation) 값도 포함되어 있어 실제 오르막/내리막 프로필을 확인할 수 있습니다.
 
 ## 구성
 
@@ -29,8 +31,11 @@ photo-cycle-map/
    - 사진 2장 이상: 연속된 두 사진 사이 구간마다 대안 경로를 구해서, 경로마다 다른 대안을 조합해
      모든 사진 위치를 순서대로 지나는 전체 경로 4개를 만든다. 거리를 입력했고 그 경로가 입력값보다
      짧으면, 마지막 사진 위치에서 부족한 거리만큼 순환 구간을 추가로 붙인다.
+   경로 스타일(업힐/밸런스/평지)에 따라 OpenRouteService의 `steepness_difficulty` 가중치(0~3)를
+   달리 적용해 오르막을 얼마나 선호할지 조절한다.
    (카카오맵 자체에는 자전거 경로 자동 생성 API가 없어 별도 라우팅 엔진을 사용합니다.)
 6. 각 경로를 지도에 다른 색 폴리라인으로 표시하고, GPX 파일로 내려받거나 다른 자전거 앱과 공유할 수 있다.
+   GPX에는 고도 데이터와 상승/하강 총량(ascent/descent)이 포함됩니다.
 
 ## 필요한 API 키
 
@@ -70,10 +75,10 @@ cd backend
 ### API
 
 - `POST /api/photo/location` — multipart 필드 `photo`로 이미지 업로드 → `{has_location, latitude, longitude, taken_at}`
-- `POST /api/routes` — `{waypoints: [{latitude, longitude}, ...], distance_km?, count}` → 경로 목록
-  (각 경로에 좌표/거리/시간/GPX 다운로드 URL). `waypoints`가 1개면 `distance_km` 필수(순환 경로 거리).
+- `POST /api/routes` — `{waypoints: [{latitude, longitude}, ...], distance_km?, count, climb_preference?}` → 경로 목록
+  (각 경로에 좌표/거리/시간/상승·하강고도/GPX 다운로드 URL). `waypoints`가 1개면 `distance_km` 필수(순환 경로 거리).
   2개 이상이면 선택 사항이며 "최소 목표 거리"로 쓰입니다 (실제 경로가 더 길면 무시, 짧으면 순환
-  구간을 추가해 채움).
+  구간을 추가해 채움). `climb_preference`는 `"업힐"` / `"밸런스"`(기본값) / `"평지"` 중 하나.
 - `GET /api/routes/{id}/gpx` — 생성된 경로의 GPX 파일 다운로드
 
 ## 웹앱 실행

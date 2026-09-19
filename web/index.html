@@ -33,6 +33,15 @@
         마지막 사진 위치에서 부족한 만큼 순환 구간을 추가하고, 이미 더 길면 입력한 거리는 무시합니다.
       </p>
 
+      <div class="field">
+        <label for="climb-select">3. 경로 스타일</label>
+        <select id="climb-select">
+          <option value="업힐">업힐 위주 (오르막을 적극적으로 지남)</option>
+          <option value="밸런스" selected>업힐 평지 위주 (밸런스)</option>
+          <option value="평지">평지 위주 (오르막을 최대한 피함)</option>
+        </select>
+      </div>
+
       <button id="generate-btn" disabled>경로 4개 생성</button>
       <p id="status-message" class="status"></p>
     </section>

@@ -13,6 +13,7 @@ const generateBtn = document.getElementById("generate-btn");
 const photoInput = document.getElementById("photo-input");
 const distanceField = document.getElementById("distance-field");
 const distanceInput = document.getElementById("distance-input");
+const climbSelect = document.getElementById("climb-select");
 const multiPhotoNote = document.getElementById("multi-photo-note");
 const photoListEl = document.getElementById("photo-list");
 const routeListEl = document.getElementById("route-list");
@@ -273,7 +274,11 @@ function renderRouteCard(route, index, color) {
 
   const info = document.createElement("div");
   info.className = "route-info";
-  info.innerHTML = `<strong>경로 ${index + 1}</strong><span>${km} km · 약 ${minutes}분</span>`;
+  let detail = `${km} km · 약 ${minutes}분`;
+  if (typeof route.ascent_m === "number") {
+    detail += ` · ↗ ${Math.round(route.ascent_m)}m / ↘ ${Math.round(route.descent_m || 0)}m`;
+  }
+  info.innerHTML = `<strong>경로 ${index + 1}</strong><span>${detail}</span>`;
 
   const link = document.createElement("a");
   link.href = `${window.APP_CONFIG.API_BASE}${route.gpx_url}`;
@@ -302,7 +307,7 @@ async function handleGenerateRoutes() {
   generateBtn.disabled = true;
 
   try {
-    const body = { waypoints, count: 4 };
+    const body = { waypoints, count: 4, climb_preference: climbSelect.value };
     // 여러 장일 때는 거리를 "최소 목표"로만 보낸다 - 비워두거나 0이면 순수 최단 경로만 생성.
     if (distanceKm > 0) body.distance_km = distanceKm;
 
