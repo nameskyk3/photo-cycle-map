@@ -35,6 +35,13 @@ photo-cycle-map/
 
 ## 백엔드 실행
 
+**Windows**: `backend\run.bat`을 더블클릭(또는 실행)하면 가상환경 생성 → 의존성 설치 → `.env` 생성(최초 1회, 메모장으로 자동으로 열어줌) →
+서버 실행까지 한 번에 됩니다. 이후에는 그냥 다시 실행하면 서버만 뜹니다.
+
+**macOS/Linux**: `./backend/run.sh` (최초 1회 `chmod +x backend/run.sh` 필요)
+
+수동으로 하려면:
+
 ```bash
 cd backend
 python3 -m venv .venv
@@ -58,6 +65,10 @@ cd backend
 
 ## 웹앱 실행
 
+**Windows**: `web\run.bat` 더블클릭 — 최초 1회 `config.js`를 만들어 메모장으로 열어주고, 이후 정적 서버(5500 포트)를 띄웁니다.
+
+수동으로 하려면:
+
 ```bash
 cp web/js/config.example.js web/js/config.js   # KAKAO_JS_KEY, API_BASE 채우기
 cd web
@@ -65,6 +76,10 @@ python3 -m http.server 5500
 ```
 
 브라우저에서 `http://localhost:5500` 접속. 백엔드가 다른 포트(8000)에서 실행 중이어야 합니다.
+
+### 백엔드 + 웹 한 번에 켜기 (Windows)
+
+저장소 루트의 `dev.bat`을 더블클릭하면 backend/web 서버가 각각 별도 콘솔 창으로 함께 실행됩니다.
 
 ## 안드로이드 앱
 
