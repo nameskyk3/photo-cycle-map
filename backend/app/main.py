@@ -1,3 +1,4 @@
+import sys
 import uuid
 
 from fastapi import FastAPI, HTTPException, Response, UploadFile
@@ -49,6 +50,12 @@ async def photo_location(photo: UploadFile) -> LocationResponse:
 @app.post("/api/routes", response_model=RouteListResponse)
 async def create_routes(request: RouteRequest) -> RouteListResponse:
     waypoints = [(point.latitude, point.longitude) for point in request.waypoints]
+    print(
+        f"[/api/routes] ENTER waypoints={waypoints} distance_km={request.distance_km} "
+        f"count={request.count} climb_preference={request.climb_preference}",
+        file=sys.stderr,
+        flush=True,
+    )
     try:
         raw_routes = await generate_routes(
             waypoints,
@@ -58,7 +65,17 @@ async def create_routes(request: RouteRequest) -> RouteListResponse:
             request.climb_preference,
         )
     except RoutingError as exc:
+        print(f"[/api/routes] RoutingError: {exc}", file=sys.stderr, flush=True)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    print(f"[/api/routes] got {len(raw_routes)} raw routes back", file=sys.stderr, flush=True)
+    for i, raw in enumerate(raw_routes):
+        print(
+            f"[/api/routes] raw route {i}: distance_m={raw.get('distance_m')} "
+            f"ascent_m={raw.get('ascent_m')} descent_m={raw.get('descent_m')}",
+            file=sys.stderr,
+            flush=True,
+        )
 
     routes = []
     for raw in raw_routes:
