@@ -1,5 +1,4 @@
 import math
-import sys
 
 import httpx
 
@@ -143,11 +142,6 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
         "Authorization": settings.ors_api_key,
         "Content-Type": "application/json",
     }
-    print(
-        f"[ORS request] {profile} options={body.get('options')} coords={body.get('coordinates')}",
-        file=sys.stderr,
-        flush=True,
-    )
     try:
         response = await client.post(url, json=body, headers=headers, timeout=30.0)
     except httpx.HTTPError as exc:
@@ -156,26 +150,7 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
     if response.status_code != 200:
         raise RoutingError(f"라우팅 서버 오류 ({response.status_code}): {response.text}")
 
-    data = response.json()
-    try:
-        props = data["features"][0]["properties"]
-        coords = data["features"][0]["geometry"]["coordinates"]
-        print(f"[ORS response] sent elevation={body.get('elevation')}", file=sys.stderr, flush=True)
-        print(
-            f"[ORS response] properties keys={list(props.keys())} summary={props.get('summary')}",
-            file=sys.stderr,
-            flush=True,
-        )
-        print(
-            f"[ORS response] first coordinate={coords[0] if coords else None} "
-            f"(len={len(coords[0]) if coords else 0})",
-            file=sys.stderr,
-            flush=True,
-        )
-    except (KeyError, IndexError, TypeError):
-        print(f"[ORS response] unexpected shape: {data}", file=sys.stderr, flush=True)
-
-    return data
+    return response.json()
 
 
 async def fetch_round_trip(
@@ -294,12 +269,6 @@ async def generate_waypoint_routes(
     이미 그보다 길면 입력값은 무시하고, 더 짧으면 마지막 사진 위치에서 순환 구간을
     추가해 부족한 만큼 채운다.
     """
-    print(
-        f"[generate_waypoint_routes] ENTER waypoints={waypoints} count={count} "
-        f"distance_km={distance_km} climb_preference={climb_preference}",
-        file=sys.stderr,
-        flush=True,
-    )
     target_m = distance_km * 1000 if distance_km is not None else None
     last_point = waypoints[-1]
     segments = list(zip(waypoints, waypoints[1:]))
@@ -389,12 +358,6 @@ async def generate_routes(
     profile: str,
     climb_preference: str = DEFAULT_CLIMB_PREFERENCE,
 ) -> list[dict]:
-    print(
-        f"[generate_routes] ENTER waypoints={waypoints} distance_km={distance_km} "
-        f"count={count} climb_preference={climb_preference}",
-        file=sys.stderr,
-        flush=True,
-    )
     _require_api_key()
 
     if len(waypoints) == 1:
