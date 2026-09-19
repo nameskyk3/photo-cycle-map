@@ -135,7 +135,10 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
         "Authorization": settings.ors_api_key,
         "Content-Type": "application/json",
     }
-    print(f"[ORS request] {profile} options={body.get('options')} coords={body.get('coordinates')}")
+    print(
+        f"[ORS request] {profile} options={body.get('options')} coords={body.get('coordinates')}",
+        flush=True,
+    )
     try:
         response = await client.post(url, json=body, headers=headers, timeout=30.0)
     except httpx.HTTPError as exc:
@@ -148,11 +151,18 @@ async def _post_directions(client: httpx.AsyncClient, profile: str, body: dict) 
     try:
         props = data["features"][0]["properties"]
         coords = data["features"][0]["geometry"]["coordinates"]
-        print(f"[ORS response] sent elevation={body.get('elevation')}")
-        print(f"[ORS response] properties keys={list(props.keys())} summary={props.get('summary')}")
-        print(f"[ORS response] first coordinate={coords[0] if coords else None} (len={len(coords[0]) if coords else 0})")
+        print(f"[ORS response] sent elevation={body.get('elevation')}", flush=True)
+        print(
+            f"[ORS response] properties keys={list(props.keys())} summary={props.get('summary')}",
+            flush=True,
+        )
+        print(
+            f"[ORS response] first coordinate={coords[0] if coords else None} "
+            f"(len={len(coords[0]) if coords else 0})",
+            flush=True,
+        )
     except (KeyError, IndexError, TypeError):
-        print(f"[ORS response] unexpected shape: {data}")
+        print(f"[ORS response] unexpected shape: {data}", flush=True)
 
     return data
 
