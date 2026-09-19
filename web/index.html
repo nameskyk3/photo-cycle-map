@@ -25,11 +25,12 @@
       <div id="photo-list" class="photo-list"></div>
 
       <div class="field" id="distance-field">
-        <label for="distance-input">2. 원하는 경로 거리 (km) — 사진이 1장일 때만 사용</label>
+        <label for="distance-input">2. 원하는 경로 거리 (km)</label>
         <input type="number" id="distance-input" value="10" min="1" max="200" step="1" />
       </div>
       <p id="multi-photo-note" class="note" hidden>
-        사진 여러 장의 위치를 순서대로 잇는 경로가 만들어집니다 (거리는 실제 경로에 따라 정해집니다).
+        사진 여러 장의 위치를 순서대로 잇는 경로가 만들어집니다. 그 경로가 입력한 거리보다 짧으면
+        마지막 사진 위치에서 부족한 만큼 순환 구간을 추가하고, 이미 더 길면 입력한 거리는 무시합니다.
       </p>
 
       <button id="generate-btn" disabled>경로 4개 생성</button>

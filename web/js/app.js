@@ -90,11 +90,10 @@ function updateMapMarkers() {
 
 function updateControlsVisibility() {
   const count = locatedPhotos().length;
-  const isSingle = count === 1;
-  // 항상 보이되, 사진이 1장일 때만 실제로 쓰이므로 그 외에는 비활성화만 한다
-  // (완전히 숨기면 "입력창이 사라졌다"고 오해하기 쉽다).
-  distanceInput.disabled = !isSingle;
-  distanceField.classList.toggle("field--disabled", !isSingle);
+  // 사진이 없을 때만 비활성화한다. 1장이면 순환 경로 거리로, 여러 장이면
+  // "최소 목표 거리"(부족하면 채우고, 이미 더 길면 무시)로 쓰인다.
+  distanceInput.disabled = count === 0;
+  distanceField.classList.toggle("field--disabled", count === 0);
   multiPhotoNote.hidden = count <= 1;
   generateBtn.disabled = count === 0;
 }
@@ -292,13 +291,10 @@ async function handleGenerateRoutes() {
   const waypoints = located.map((p) => ({ latitude: p.lat, longitude: p.lng }));
   const isSingle = located.length === 1;
 
-  let distanceKm = null;
-  if (isSingle) {
-    distanceKm = Number(distanceInput.value);
-    if (!distanceKm || distanceKm <= 0) {
-      setStatus("올바른 거리를 입력해주세요.", true);
-      return;
-    }
+  const distanceKm = Number(distanceInput.value);
+  if (isSingle && (!distanceKm || distanceKm <= 0)) {
+    setStatus("올바른 거리를 입력해주세요.", true);
+    return;
   }
 
   clearRoutes();
@@ -307,7 +303,8 @@ async function handleGenerateRoutes() {
 
   try {
     const body = { waypoints, count: 4 };
-    if (distanceKm !== null) body.distance_km = distanceKm;
+    // 여러 장일 때는 거리를 "최소 목표"로만 보낸다 - 비워두거나 0이면 순수 최단 경로만 생성.
+    if (distanceKm > 0) body.distance_km = distanceKm;
 
     const response = await fetch(`${window.APP_CONFIG.API_BASE}/api/routes`, {
       method: "POST",

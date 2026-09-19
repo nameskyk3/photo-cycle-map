@@ -172,11 +172,10 @@ class PhotoRouteViewModel(application: Application) : AndroidViewModel(applicati
 
             try {
                 val waypoints = located.map { WaypointDto(latitude = it.lat!!, longitude = it.lng!!) }
+                // 사진이 여러 장이면 distanceKm은 "최소 목표 거리"로 쓰인다: 사진들을 잇는
+                // 경로가 이미 더 길면 서버에서 무시하고, 짧으면 순환 구간을 추가해 채운다.
                 val response = ApiClient.service.generateRoutes(
-                    RouteRequest(
-                        waypoints = waypoints,
-                        distance_km = if (located.size == 1) distanceKm else null,
-                    )
+                    RouteRequest(waypoints = waypoints, distance_km = distanceKm)
                 )
                 _uiState.update {
                     it.copy(

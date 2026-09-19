@@ -133,41 +133,69 @@ async def generate_waypoint_routes(
     waypoints: list[Coordinate],
     count: int,
     profile: str,
+    distance_km: float | None = None,
 ) -> list[dict]:
     """2개 이상의 지점을 순서대로 모두 지나는 경로를 count개 만든다.
 
     연속된 두 지점 사이(구간)마다 서로 다른 대안 경로를 구한 뒤, 경로 번호마다
     각 구간에서 다른 대안을 골라 이어 붙여서 서로 다른 전체 경로 count개를 만든다.
+
+    `distance_km`을 지정하면 최소 목표 거리로 취급한다: 사진들을 지나는 실제 경로가
+    이미 그보다 길면 입력값은 무시하고, 더 짧으면 마지막 사진 위치에서 순환 구간을
+    추가해 부족한 만큼 채운다.
     """
+    target_m = distance_km * 1000 if distance_km is not None else None
+    last_point = waypoints[-1]
+
     async with httpx.AsyncClient() as client:
         segment_alternatives: list[list[dict]] = []
         for start, end in zip(waypoints, waypoints[1:]):
             alternatives = await fetch_segment_alternatives(client, start, end, profile, count)
             segment_alternatives.append(alternatives)
 
-    routes = []
-    for variant_index in range(count):
-        combined_coordinates: list[Coordinate] = []
-        total_distance = 0.0
-        total_duration = 0.0
+        routes = []
+        for variant_index in range(count):
+            combined_coordinates: list[Coordinate] = []
+            total_distance = 0.0
+            total_duration = 0.0
 
-        for segment in segment_alternatives:
-            alternative = segment[min(variant_index, len(segment) - 1)]
-            coords = alternative["coordinates"]
-            # Avoid duplicating the junction point shared between segments.
-            if combined_coordinates and coords and combined_coordinates[-1] == coords[0]:
-                coords = coords[1:]
-            combined_coordinates.extend(coords)
-            total_distance += alternative["distance_m"]
-            total_duration += alternative["duration_s"]
+            for segment in segment_alternatives:
+                alternative = segment[min(variant_index, len(segment) - 1)]
+                coords = alternative["coordinates"]
+                # Avoid duplicating the junction point shared between segments.
+                if combined_coordinates and coords and combined_coordinates[-1] == coords[0]:
+                    coords = coords[1:]
+                combined_coordinates.extend(coords)
+                total_distance += alternative["distance_m"]
+                total_duration += alternative["duration_s"]
 
-        routes.append(
-            {
-                "distance_m": total_distance,
-                "duration_s": total_duration,
-                "coordinates": combined_coordinates,
-            }
-        )
+            if target_m is not None and total_distance < target_m:
+                shortfall_km = (target_m - total_distance) / 1000
+                seed = 2000 * (variant_index + 1) + 31
+                points = 3 + (variant_index % 3)
+                try:
+                    extension = await fetch_round_trip(
+                        client, last_point[0], last_point[1], shortfall_km, profile, seed, points
+                    )
+                except RoutingError:
+                    # 부족분을 못 채워도 원래(사진들을 잇는) 경로는 그대로 돌려준다.
+                    extension = None
+
+                if extension is not None:
+                    ext_coords = extension["coordinates"]
+                    if combined_coordinates and ext_coords and combined_coordinates[-1] == ext_coords[0]:
+                        ext_coords = ext_coords[1:]
+                    combined_coordinates.extend(ext_coords)
+                    total_distance += extension["distance_m"]
+                    total_duration += extension["duration_s"]
+
+            routes.append(
+                {
+                    "distance_m": total_distance,
+                    "duration_s": total_duration,
+                    "coordinates": combined_coordinates,
+                }
+            )
 
     return routes
 
@@ -186,4 +214,4 @@ async def generate_routes(
         latitude, longitude = waypoints[0]
         return await generate_round_trip_routes(latitude, longitude, distance_km, count, profile)
 
-    return await generate_waypoint_routes(waypoints, count, profile)
+    return await generate_waypoint_routes(waypoints, count, profile, distance_km)

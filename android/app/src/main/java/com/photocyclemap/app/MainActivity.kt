@@ -93,25 +93,25 @@ fun PhotoCycleMapScreen(viewModel: PhotoRouteViewModel = viewModel()) {
                 PhotoOrderList(photos = uiState.photos, viewModel = viewModel)
             }
 
-            if (locatedCount == 1) {
+            if (locatedCount > 0) {
                 OutlinedTextField(
                     value = distanceKm,
                     onValueChange = { distanceKm = it },
                     label = { Text("2. 원하는 경로 거리 (km)") },
                     modifier = Modifier.fillMaxWidth(),
                 )
-            } else if (locatedCount > 1) {
+            }
+            if (locatedCount > 1) {
                 Text(
-                    text = "사진 ${locatedCount}장의 위치를 순서대로 잇는 경로가 만들어집니다.",
+                    text = "사진 ${locatedCount}장의 위치를 순서대로 잇는 경로가 만들어집니다. " +
+                        "그 경로가 입력한 거리보다 짧으면 부족한 만큼 순환 구간을 추가하고, " +
+                        "이미 더 길면 입력한 거리는 무시합니다.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
 
             Button(
-                onClick = {
-                    val distance = if (locatedCount == 1) distanceKm.toDoubleOrNull() else null
-                    viewModel.generateRoutes(distance)
-                },
+                onClick = { viewModel.generateRoutes(distanceKm.toDoubleOrNull()) },
                 enabled = locatedCount > 0 && !uiState.isLoading,
             ) {
                 Text("경로 4개 생성")

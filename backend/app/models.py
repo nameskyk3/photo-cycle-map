@@ -15,9 +15,10 @@ class Waypoint(BaseModel):
 
 class RouteRequest(BaseModel):
     waypoints: list[Waypoint] = Field(min_length=1, max_length=20)
-    # Target round-trip length; only used (and required) when there is exactly
-    # one waypoint. With 2+ waypoints the route's length is however long the
-    # road path through all of them turns out to be.
+    # Required when there is exactly one waypoint (target round-trip length).
+    # Optional with 2+ waypoints: treated as a minimum target length - if the
+    # road path through all waypoints is already longer, this is ignored; if
+    # shorter, a loop is added at the end to make up the difference.
     distance_km: float | None = Field(default=None, gt=0, le=200)
     count: int = Field(default=4, ge=1, le=8)
     profile: str = Field(default="cycling-regular")

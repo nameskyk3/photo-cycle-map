@@ -157,3 +157,46 @@ async def test_generate_waypoint_routes_reuses_last_alternative_when_fewer_avail
     assert len(routes) == 3
     for route in routes:
         assert route["coordinates"] == [(0.0, 0.0), (1.0, 1.0)]
+
+
+@pytest.mark.asyncio
+async def test_generate_waypoint_routes_ignores_distance_km_when_route_already_longer():
+    segment = _ors_geojson_response([(5000, 500, [(0.0, 0.0), (1.0, 1.0)])])
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            return_value=httpx.Response(200, json=segment)
+        )
+        # Want a 2km ride, but the photos are already 5km apart -> distance_km is ignored.
+        routes = await routing.generate_routes(
+            [(0.0, 0.0), (1.0, 1.0)], 2.0, 1, "cycling-regular"
+        )
+
+    assert routes[0]["distance_m"] == 5000
+    assert routes[0]["coordinates"] == [(0.0, 0.0), (1.0, 1.0)]
+
+
+@pytest.mark.asyncio
+async def test_generate_waypoint_routes_extends_route_when_shorter_than_distance_km():
+    segment = _ors_geojson_response([(1000, 100, [(0.0, 0.0), (1.0, 1.0)])])
+    extension = _ors_geojson_response([(4000, 400, [(1.0, 1.0), (1.2, 1.2), (1.0, 1.0)])])
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if "options" in body:  # round_trip extension request
+            return httpx.Response(200, json=extension)
+        return httpx.Response(200, json=segment)
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        # Want a 5km ride, but the direct path between the photos is only 1km ->
+        # a loop is added at the last waypoint to make up the remaining 4km.
+        routes = await routing.generate_routes(
+            [(0.0, 0.0), (1.0, 1.0)], 5.0, 1, "cycling-regular"
+        )
+
+    route = routes[0]
+    assert route["distance_m"] == 5000
+    assert route["coordinates"] == [(0.0, 0.0), (1.0, 1.0), (1.2, 1.2), (1.0, 1.0)]
