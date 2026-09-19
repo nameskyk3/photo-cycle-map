@@ -6,4 +6,4 @@
 KAKAO_NATIVE_APP_KEY=
 
 # 백엔드 서버 주소. 에뮬레이터에서 로컬 서버에 접속할 때는 10.0.2.2를 사용하세요.
-API_BASE_URL=http://10.0.2.2:8000
+API_BASE_URL=http://10.0.2.2:8010

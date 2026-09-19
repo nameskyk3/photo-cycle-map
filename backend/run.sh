@@ -12,4 +12,4 @@ if [ ! -f .env ]; then
     echo ".env 파일을 새로 만들었습니다. ORS_API_KEY를 채워주세요: $(pwd)/.env"
 fi
 
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload

@@ -6,5 +6,5 @@ window.APP_CONFIG = {
   KAKAO_JS_KEY: "YOUR_KAKAO_JAVASCRIPT_KEY",
 
   // 백엔드 API 주소
-  API_BASE: "http://localhost:8000",
+  API_BASE: "http://localhost:8010",
 };

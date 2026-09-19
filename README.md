@@ -62,7 +62,7 @@ cd backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt   # 테스트까지 필요하면 -dev, 아니면 requirements.txt
 cp .env.example .env    # ORS_API_KEY 값 채우기
-.venv/bin/uvicorn app.main:app --reload --port 8000
+.venv/bin/uvicorn app.main:app --reload --port 8010
 ```
 
 테스트 실행 (EXIF 추출/GPX 생성/라우팅 호출을 모두 목(mock) 데이터로 검증합니다. 실제 카카오/ORS 키 없이도 통과합니다):
@@ -93,7 +93,13 @@ cd web
 python3 -m http.server 5500
 ```
 
-브라우저에서 `http://localhost:5500` 접속. 백엔드가 다른 포트(8000)에서 실행 중이어야 합니다.
+브라우저에서 `http://localhost:5500` 접속. 백엔드가 다른 포트(8010)에서 실행 중이어야 합니다.
+
+> **포트 8000이 계속 이상하게 동작한다면(요청이 안 잡히거나, 죽여도 안 죽는 유령 프로세스가 있다면)**:
+> Windows에서 Hyper-V/WSL2가 특정 포트 범위를 예약해 `netstat`에는 LISTENING으로 보이지만
+> `tasklist`/`taskkill`로는 잡히지 않는 경우가 있습니다. 이 프로젝트는 기본 포트를 8000이 아닌
+> **8010**으로 바꿔서 이 문제를 피합니다. 8010도 같은 증상이면 `netsh interface ipv4 show
+> excludedportrange protocol=tcp`로 예약된 범위를 확인하고, 범위 밖의 다른 포트로 바꿔주세요.
 
 ### 백엔드 + 웹 한 번에 켜기 (Windows)
 

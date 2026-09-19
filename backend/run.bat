@@ -12,6 +12,6 @@ if not exist .env (
     notepad .env
 )
 
-.venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+.venv\Scripts\uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
 
 pause
