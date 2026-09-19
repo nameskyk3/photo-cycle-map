@@ -92,31 +92,81 @@ async def test_generate_routes_requires_distance_for_single_waypoint():
 
 
 @pytest.mark.asyncio
-async def test_generate_waypoint_routes_passes_through_every_waypoint_in_order():
-    # Two segments (A->B, B->C), each with 2 alternatives.
-    segment_ab = _ors_geojson_response(
-        [
-            (1000, 100, [(0.0, 0.0), (0.5, 0.5), (1.0, 1.0)]),
-            (1200, 120, [(0.0, 0.0), (0.4, 0.6), (1.0, 1.0)]),
-        ]
-    )
-    segment_bc = _ors_geojson_response(
-        [
-            (2000, 200, [(1.0, 1.0), (1.5, 1.5), (2.0, 2.0)]),
-            (2100, 210, [(1.0, 1.0), (1.6, 1.4), (2.0, 2.0)]),
-        ]
-    )
-
-    call_count = {"n": 0}
+async def test_fetch_segment_route_without_via_sends_two_coordinates():
+    route = _ors_geojson_response([(1000, 100, [(0.0, 0.0), (1.0, 1.0)])])
+    sent_bodies = []
 
     def _responder(request: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
+        sent_bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=route)
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        async with httpx.AsyncClient() as client:
+            result = await routing.fetch_segment_route(
+                client, (0.0, 0.0), (1.0, 1.0), "cycling-regular"
+            )
+
+    assert len(sent_bodies[0]["coordinates"]) == 2
+    assert "round_trip" not in sent_bodies[0].get("options", {})
+    assert result["coordinates"] == [(0.0, 0.0), (1.0, 1.0)]
+
+
+@pytest.mark.asyncio
+async def test_fetch_segment_route_with_via_sends_three_coordinates():
+    route = _ors_geojson_response([(1500, 150, [(0.0, 0.0), (0.5, 0.6), (1.0, 1.0)])])
+    sent_bodies = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        sent_bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=route)
+
+    with respx.mock:
+        respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
+            side_effect=_responder
+        )
+        async with httpx.AsyncClient() as client:
+            await routing.fetch_segment_route(
+                client, (0.0, 0.0), (1.0, 1.0), "cycling-regular", via=(0.5, 0.6)
+            )
+
+    assert len(sent_bodies[0]["coordinates"]) == 3
+    assert sent_bodies[0]["coordinates"][1] == [0.6, 0.5]  # via as [lng, lat]
+
+
+def test_variant_offset_m_is_zero_for_first_variant_and_grows_after():
+    assert routing._variant_offset_m(0, 10_000) == 0.0
+
+    offset1 = routing._variant_offset_m(1, 10_000)
+    offset2 = routing._variant_offset_m(2, 10_000)
+    assert offset1 > 0
+    assert offset2 < 0
+    assert abs(offset2) > abs(offset1)  # later variants get a bigger detour
+
+
+def test_offset_via_point_nudges_perpendicular_to_the_segment():
+    start = (37.5, 127.0)
+    end = (37.5, 127.01)  # a segment running due east
+
+    via = routing._offset_via_point(start, end, 200.0)
+
+    mid_lng = (start[1] + end[1]) / 2
+    mid_lat = (start[0] + end[0]) / 2
+    # Nudged mostly in latitude (perpendicular to an east-west segment).
+    assert via[1] == pytest.approx(mid_lng, abs=1e-6)
+    assert via[0] != pytest.approx(mid_lat, abs=1e-6)
+
+
+@pytest.mark.asyncio
+async def test_generate_waypoint_routes_passes_through_every_waypoint_in_order():
+    def _responder(request: httpx.Request) -> httpx.Response:
+        # Echo back a route that runs through exactly the requested coordinates
+        # (start, optional via, end), so pass-through order can be checked.
         coords = json.loads(request.content)["coordinates"]
-        start = tuple(coords[0])
-        # ORS coordinates are [lng, lat]; segment A->B starts at (0,0), B->C at (1,1).
-        if start == (0.0, 0.0):
-            return httpx.Response(200, json=segment_ab)
-        return httpx.Response(200, json=segment_bc)
+        path = [(lat, lng) for lng, lat in coords]
+        return httpx.Response(200, json=_ors_geojson_response([(1000, 100, path)]))
 
     with respx.mock:
         respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
@@ -126,7 +176,6 @@ async def test_generate_waypoint_routes_passes_through_every_waypoint_in_order()
             [(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)], None, 2, "cycling-regular"
         )
 
-    assert call_count["n"] == 2  # one request per segment, alternatives requested together
     assert len(routes) == 2
 
     for route in routes:
@@ -137,26 +186,30 @@ async def test_generate_waypoint_routes_passes_through_every_waypoint_in_order()
         # The shared junction point must not be duplicated.
         assert route["coordinates"].count((1.0, 1.0)) == 1
 
-    # The two variants should differ (they use different alternatives per segment).
+    # Variant 1 forces a via point per segment, so it must differ from
+    # variant 0's plain point-to-point route.
     assert routes[0]["coordinates"] != routes[1]["coordinates"]
 
 
 @pytest.mark.asyncio
-async def test_generate_waypoint_routes_reuses_last_alternative_when_fewer_available():
-    # Only one alternative available for this segment.
-    segment = _ors_geojson_response([(1000, 100, [(0.0, 0.0), (1.0, 1.0)])])
+async def test_generate_waypoint_routes_only_injects_via_for_later_variants():
+    sent_coordinate_counts = []
+
+    def _responder(request: httpx.Request) -> httpx.Response:
+        coords = json.loads(request.content)["coordinates"]
+        sent_coordinate_counts.append(len(coords))
+        path = [(lat, lng) for lng, lat in coords]
+        return httpx.Response(200, json=_ors_geojson_response([(1000, 100, path)]))
 
     with respx.mock:
         respx.post(f"{settings.ors_base_url}/v2/directions/cycling-regular/geojson").mock(
-            return_value=httpx.Response(200, json=segment)
+            side_effect=_responder
         )
-        routes = await routing.generate_routes(
-            [(0.0, 0.0), (1.0, 1.0)], None, 3, "cycling-regular"
-        )
+        await routing.generate_routes([(0.0, 0.0), (1.0, 1.0)], None, 3, "cycling-regular")
 
-    assert len(routes) == 3
-    for route in routes:
-        assert route["coordinates"] == [(0.0, 0.0), (1.0, 1.0)]
+    # One segment, 3 variants -> 3 requests: the first has no via (2
+    # coordinates), the rest are forced through a via point (3 coordinates).
+    assert sent_coordinate_counts == [2, 3, 3]
 
 
 @pytest.mark.asyncio
